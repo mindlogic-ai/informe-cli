@@ -1,6 +1,6 @@
 # informe-cli — Informe in your terminal
 
-> Public mirror of `cli/` in the private `mindlogic-claude-agent` repo (source of truth, synced from commit dcd86e2a). Installing needs no GitHub access; using it still needs a @mindlogic.ai login through Cloudflare Access.
+> Public mirror of `cli/` in the private `mindlogic-claude-agent` repo (source of truth, synced from commit c615b98d). Installing needs no GitHub access; using it still needs a @mindlogic.ai login through Cloudflare Access.
 
     uv tool install "git+https://github.com/mindlogic-ai/informe-cli"
     inf setup                                  # checks cloudflared, installs the Claude Code skill
@@ -22,6 +22,7 @@ session, file, and cost is attributed to you, exactly like the web app.
     inf -c "follow-up"          continue your last session
     inf -p "q" --json           script/agent mode: JSON summary on stdout
     inf --attach f.log "q"      hand a local file to the turn
+    inf -m fable "q"            answer with Fable 5.1 (default: Opus 5); REPL: /fable, /opus, /model
     inf open [key]              open the session in the web app
     inf stop [key]              stop the turn running on a session (default: last)
     inf sessions [--search q]   list / search your sessions

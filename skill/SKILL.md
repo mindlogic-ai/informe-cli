@@ -73,6 +73,7 @@ safe to pipe stdout.
 
     inf                    # human REPL
     inf -c "…"             # continue the last session
+    inf -m fable -p "…" --json   # harder reasoning: answer with Fable 5.1 instead of the default Opus
     inf sessions --json    # list sessions (same list as the web sidebar)
     inf history <key>      # full transcript of one session
     inf open [key]         # open the session in the browser

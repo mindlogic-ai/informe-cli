@@ -21,6 +21,7 @@ def run_turn(
     session_key: str | None = None,
     project: str | None = None,
     attachments: tuple[str, ...] | list[str] = (),
+    model: str | None = None,
     json_out: bool = False,
     quiet: bool = False,
 ) -> dict:
@@ -29,6 +30,10 @@ def run_turn(
         body["session_key"] = session_key
     if project:
         body["project"] = project
+    if model:
+        # Per-turn, same field the web composer's model chip fills. The server
+        # picks the matching thinking effort itself (Fable thinks harder).
+        body["model"] = model
     if attachments:
         body["attachments"] = list(attachments)
     r = client.post("/v1/turns", json=body)

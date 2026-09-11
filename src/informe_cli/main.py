@@ -8,7 +8,7 @@ import webbrowser
 import typer
 from typer.core import TyperGroup
 
-from informe_cli import auth, chat, state
+from informe_cli import auth, chat, models, state
 
 _PASSTHROUGH = {"--help", "-h", "--install-completion", "--show-completion"}
 
@@ -39,7 +39,7 @@ def cli(ctx: typer.Context):
         typer.echo("no question given and stdin is not a terminal", err=True)
         raise typer.Exit(2)
     with auth.build_client() as client:
-        _repl(client, None, None)
+        _repl(client, None, None, None)
 
 
 @app.command("chat", hidden=True)
@@ -52,11 +52,21 @@ def chat_cmd(
     json_out: bool = typer.Option(False, "--json", help="emit a JSON summary instead of streaming"),
     attach: list[str] = typer.Option(None, "--attach", help="local file to attach (repeatable)"),
     attach_ws: list[str] = typer.Option(None, "--attach-ws", help="workspace path to attach (repeatable)"),
+    model: str = typer.Option(
+        None, "-m", "--model",
+        help="which model answers: fable | opus (server default) | a full claude-* id; "
+             "in the REPL, /fable and /opus switch for the rest of the session",
+    ),
 ):
     """Ask Informe (the default when no subcommand matches)."""
     key = session or (state.load_last_session() if continue_ else None)
     if continue_ and not key:
         typer.echo("no last session — ask something first", err=True)
+        raise typer.Exit(2)
+    try:
+        model_id = models.resolve_model(model)
+    except ValueError as e:
+        typer.echo(str(e), err=True)
         raise typer.Exit(2)
     text = " ".join(question or []).strip()
     with auth.build_client() as client:
@@ -64,13 +74,13 @@ def chat_cmd(
         if text:
             chat.run_turn(
                 client, text, session_key=key, project=project,
-                attachments=ids, json_out=json_out,
+                attachments=ids, model=model_id, json_out=json_out,
             )
             return
         if plain or not sys.stdin.isatty():
             typer.echo("no question given and stdin is not a terminal", err=True)
             raise typer.Exit(2)
-        _repl(client, key, project)
+        _repl(client, key, project, model_id)
 
 
 def _resolve_attachments(client, session_key, attach, attach_ws, project) -> list[str]:
@@ -87,8 +97,10 @@ def _resolve_attachments(client, session_key, attach, attach_ws, project) -> lis
     return ids
 
 
-def _repl(client, key: str | None, project: str | None) -> None:
-    typer.echo("Informe REPL — empty line or Ctrl-D to leave.", err=True)
+def _repl(client, key: str | None, project: str | None, model: str | None) -> None:
+    typer.echo("Informe REPL — empty line or Ctrl-D to leave; /fable, /opus switch model.", err=True)
+    if model:
+        typer.echo(f"model: {models.label(model)}", err=True)
     while True:
         try:
             line = input("inf> ").strip()
@@ -97,7 +109,16 @@ def _repl(client, key: str | None, project: str | None) -> None:
             return
         if not line or line in ("exit", "quit"):
             return
-        snap = chat.run_turn(client, line, session_key=key, project=project)
+        # Sticky for this REPL, like Slack's /fable is sticky for a thread. The
+        # server has no per-session model, so the choice lives here and is
+        # re-sent with every turn; a new `inf` process starts on the default.
+        is_cmd, new_model, show_only = models.parse_model_command(line)
+        if is_cmd:
+            if not show_only:
+                model = new_model
+            typer.echo(f"model: {models.label(model)}", err=True)
+            continue
+        snap = chat.run_turn(client, line, session_key=key, project=project, model=model)
         key = snap["session_key"]
 
 
