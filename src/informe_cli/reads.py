@@ -4,7 +4,7 @@ import json as jsonlib
 
 import typer
 
-from informe_cli import auth
+from informe_cli import auth, context
 from informe_cli.main import app
 
 
@@ -53,27 +53,42 @@ def sessions(
 
         _emit(data, json_out, human)
         return
-    data = _get("/v1/sessions", limit=limit)
+    # include_context is opt-in server-side: the web sidebar polls this endpoint
+    # every 6-30s and does not want the field. One `inf sessions` is not a poll.
+    data = _get("/v1/sessions", limit=limit, include_context=True)
+    # The listing reports context per row and the two limits once, so the
+    # per-row block is assembled against the shared limits here.
+    limits = {k: data.get(k) for k in ("context_window", "context_compact_at")}
+    for row in data.get("sessions") or []:
+        row["context"] = context.block({**limits, **row})
 
     def human(d):
         for s in d.get("sessions") or []:
             run = "▶" if s.get("running") else " "
             cost = f" ${s['cost_usd']:.2f}" if s.get("cost_usd") else ""
+            ctx = context.brief(s.get("context"))
             typer.echo(f"{run} {s['session_key']}  {s.get('title') or ''}  "
-                       f"({s.get('turns') or 0} turns{cost})")
+                       f"({s.get('turns') or 0} turns{cost}"
+                       f"{', ' + ctx if ctx else ''})")
 
     _emit(data, json_out, human)
 
 
 @app.command()
 def history(session_key: str, json_out: bool = typer.Option(False, "--json")):
-    """Full turn history of one session."""
+    """Full turn history of one session, and how full its context window is."""
     data = _get(f"/v1/sessions/{session_key}/history")
+    # The endpoint already carries the three raw fields; normalising them into
+    # the same `context` object `inf -p --json` emits means one shape to parse.
+    data["context"] = context.block(data)
 
     def human(d):
         for t in d.get("turns") or []:
             typer.echo(f"you: {t.get('question') or ''}")
             typer.echo(f"informe: {t.get('answer') or ''}\n")
+        ctx_line = context.line(d.get("context"))
+        if ctx_line:
+            typer.echo(ctx_line, err=True)
 
     _emit(data, json_out, human)
 

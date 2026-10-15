@@ -57,7 +57,7 @@ def test_run_turn_json_mode_prints_summary_only(mock_api, capsys):
     out = json.loads(capsys.readouterr().out)
     assert out == {
         "session_key": "web:u@x:1", "run_id": "r1", "status": "done",
-        "text": "x", "cost_usd": 0.01, "error": None,
+        "text": "x", "cost_usd": 0.01, "context": None, "error": None,
     }
 
 

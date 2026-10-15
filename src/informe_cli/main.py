@@ -54,8 +54,8 @@ def chat_cmd(
     attach_ws: list[str] = typer.Option(None, "--attach-ws", help="workspace path to attach (repeatable)"),
     model: str = typer.Option(
         None, "-m", "--model",
-        help="which model answers: fable | opus (server default) | a full claude-* id; "
-             "in the REPL, /fable and /opus switch for the rest of the session",
+        help="which model answers: opus (server default) | fable | sonnet | a full claude-* id; "
+             "sticks to the chat. In the REPL, /opus /fable /sonnet switch",
     ),
 ):
     """Ask Informe (the default when no subcommand matches)."""
@@ -98,7 +98,11 @@ def _resolve_attachments(client, session_key, attach, attach_ws, project) -> lis
 
 
 def _repl(client, key: str | None, project: str | None, model: str | None) -> None:
-    typer.echo("Informe REPL — empty line or Ctrl-D to leave; /fable, /opus switch model.", err=True)
+    typer.echo(
+        "Informe REPL — empty line or Ctrl-D to leave; /opus, /fable, /sonnet switch model; "
+        "/compact summarizes the context.",
+        err=True,
+    )
     if model:
         typer.echo(f"model: {models.label(model)}", err=True)
     while True:
@@ -109,9 +113,17 @@ def _repl(client, key: str | None, project: str | None, model: str | None) -> No
             return
         if not line or line in ("exit", "quit"):
             return
-        # Sticky for this REPL, like Slack's /fable is sticky for a thread. The
-        # server has no per-session model, so the choice lives here and is
-        # re-sent with every turn; a new `inf` process starts on the default.
+        # Sticky like Slack's /fable: the choice is re-sent with every turn and
+        # the server pins it to the chat, so `inf -c` later stays on it too.
+        # Whole-line `/compact`, like the model commands below and like the web
+        # composer: the REPL is where a session gets long enough to need it, and
+        # leaving the REPL to run `inf compact` loses the session you are in.
+        if line == "/compact":
+            if not key:
+                typer.echo("nothing to compact yet — ask something first", err=True)
+                continue
+            _compact_cmd.compact_in_repl(client, key)
+            continue
         is_cmd, new_model, show_only = models.parse_model_command(line)
         if is_cmd:
             if not show_only:
@@ -141,3 +153,4 @@ from informe_cli import files_ws as _files_ws  # noqa: E402,F401
 from informe_cli import setup_cmd as _setup_cmd  # noqa: E402,F401
 from informe_cli import db_cmd as _db_cmd  # noqa: E402,F401
 from informe_cli import stop_cmd as _stop_cmd  # noqa: E402,F401
+from informe_cli import compact_cmd as _compact_cmd  # noqa: E402,F401

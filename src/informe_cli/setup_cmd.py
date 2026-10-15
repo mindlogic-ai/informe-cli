@@ -18,6 +18,13 @@ def skill_source() -> Path:
     return Path(__file__).resolve().parents[2] / "skill" / "SKILL.md"
 
 
+def bundled_skills_source() -> Path:
+    packaged = Path(__file__).resolve().parent / "skills"
+    if packaged.is_dir():
+        return packaged
+    return Path(__file__).resolve().parents[2] / "skills"
+
+
 def _skills_dir() -> Path:
     override = os.environ.get("CLAUDE_SKILLS_DIR")
     return Path(override) if override else Path.home() / ".claude" / "skills"
@@ -25,7 +32,7 @@ def _skills_dir() -> Path:
 
 @app.command()
 def setup():
-    """One-time onboarding: check cloudflared, install the Claude Code skill."""
+    """One-time onboarding: check cloudflared, install the Claude Code skills."""
     if shutil.which("cloudflared"):
         typer.echo("✓ cloudflared found")
     else:
@@ -40,5 +47,11 @@ def setup():
         typer.echo(f"✓ Claude Code skill installed → {dest / 'SKILL.md'}")
     else:
         typer.echo(f"✗ skill source missing at {src} — copy it from the repo: cli/skill/SKILL.md")
+    bundled = bundled_skills_source()
+    if bundled.is_dir():
+        for skill in sorted(d for d in bundled.iterdir() if (d / "SKILL.md").is_file()):
+            dest = _skills_dir() / skill.name
+            shutil.copytree(skill, dest, dirs_exist_ok=True)
+            typer.echo(f"✓ Claude Code skill installed → {dest / 'SKILL.md'}")
     typer.echo("upgrade later:  uv tool upgrade informe-cli && inf setup")
     typer.echo('try:  inf "안녕"   then  inf open')

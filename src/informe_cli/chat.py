@@ -8,7 +8,7 @@ import sys
 import httpx
 import typer
 
-from informe_cli import state
+from informe_cli import context, state
 from informe_cli.sse import Renderer, parse_sse
 
 MAX_RECONNECTS = 5
@@ -63,6 +63,10 @@ def run_turn(
 
     snap = dict(renderer.snap or {})
     snap["session_key"] = key
+    # The terminal event is a whole snapshot, so this is already in hand — no
+    # extra request. cost_usd is per turn and only grows; how full the window
+    # is, is the number that says whether to compact before the next one.
+    ctx = context.block(snap)
     if json_out:
         typer.echo(json.dumps({
             "session_key": key,
@@ -70,12 +74,15 @@ def run_turn(
             "status": snap.get("status"),
             "text": snap.get("result_text") or snap.get("partial") or "",
             "cost_usd": snap.get("cost_usd"),
+            "context": ctx,
             "error": snap.get("error"),
         }, ensure_ascii=False))
     elif not quiet:
         sys.stdout.write("\n")
         sys.stdout.flush()
-        typer.echo(f"[session {key}]", err=True)
+        # stderr, beside [session ...]: stdout stays the answer and stays pipeable.
+        ctx_line = context.line(ctx)
+        typer.echo(f"[session {key}]" + (f"  {ctx_line}" if ctx_line else ""), err=True)
     if snap.get("status") == "error":
         raise typer.Exit(1)
     return snap

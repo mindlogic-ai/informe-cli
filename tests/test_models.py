@@ -15,8 +15,9 @@ def test_resolve_aliases_and_passthrough():
     assert models.resolve_model("fable") == "claude-fable-5-1[1m]"
     assert models.resolve_model("FABLE") == "claude-fable-5-1[1m]"
     assert models.resolve_model("fable5.1") == "claude-fable-5-1[1m]"
-    assert models.resolve_model("opus") is None          # server default
-    assert models.resolve_model("auto") is None
+    assert models.resolve_model("opus") == "claude-opus"  # server maps to its default
+    assert models.resolve_model("auto") == "claude-opus"
+    assert models.resolve_model("sonnet") == "claude-sonnet-5[1m]"
     assert models.resolve_model(None) is None
     assert models.resolve_model("claude-opus-5") == "claude-opus-5"
     with pytest.raises(ValueError):
@@ -26,7 +27,9 @@ def test_resolve_aliases_and_passthrough():
 def test_parse_model_command_whole_line_only():
     assert models.parse_model_command("/fable") == (True, "claude-fable-5-1[1m]", False)
     assert models.parse_model_command(" /Fable5.1 ") == (True, "claude-fable-5-1[1m]", False)
-    assert models.parse_model_command("/opus") == (True, None, False)
+    assert models.parse_model_command("/opus") == (True, "claude-opus", False)
+    assert models.parse_model_command("/opus5.5") == (True, "claude-opus", False)
+    assert models.parse_model_command("/sonnet") == (True, "claude-sonnet-5[1m]", False)
     assert models.parse_model_command("/model") == (True, None, True)
     # A question that merely mentions the command is a question.
     assert models.parse_model_command("/fable 왜 안 돼?") == (False, None, False)
@@ -76,4 +79,6 @@ def test_repl_fable_is_sticky_until_opus(mock_api, monkeypatch):
     from informe_cli.main import _repl
     with auth.build_client() as c:
         _repl(c, None, None, None)
-    assert [t.get("model") for t in seen] == ["claude-fable-5-1[1m]", "claude-fable-5-1[1m]", None]
+    # /opus must SEND the default, not omit it: the server pins the chat, and an
+    # omitted model would leave it on Fable.
+    assert [t.get("model") for t in seen] == ["claude-fable-5-1[1m]", "claude-fable-5-1[1m]", "claude-opus"]

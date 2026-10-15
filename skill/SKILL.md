@@ -38,7 +38,9 @@ have. Ask it for anything in these domains rather than attempting locally:
 - **Documents & media (Korean-first)** — HWP read/convert/edit, PDF, 제안서/공문/보고서
   drafting with humanizer polish, PPT, image generation/background removal, STT/TTS.
 - **Publishing** — pages/dashboards/services to `*.apps.mindlogic.tools` behind company
-  login, S3 report exports.
+  login, S3 report exports. A page the user wants to share ("docs에 올려줘", "링크로 줘")
+  is built here with the `mindlogic-design-page` skill (installed by `inf setup`) and
+  handed to Informe to upload — never a claude.ai Artifact.
 - **Org memory** — team knowledge and decisions (`inf memory`, or just ask it).
 
 The live, authoritative catalog is `inf skills --json` (45+ shared skills; read one
@@ -51,8 +53,15 @@ with `inf skills <name>`). When unsure whether Informe can do X, asking it direc
     inf -p "credit balance and this month's usage for member_id 12345" --json
     inf -p "check tenant 1211 status on staging" --json
 
-Returns `{"session_key", "run_id", "status", "text", "cost_usd", "error"}` on stdout;
-DB answers include the SQL that was run. Ask in English or Korean — Informe answers in
+Returns `{"session_key", "run_id", "status", "text", "cost_usd", "context", "error"}`
+on stdout; DB answers include the SQL that was run. `context` is
+`{"input_tokens", "limit_tokens", "compact_at_tokens", "fraction",
+"fraction_of_window"}` — how close that session is to being auto-compacted, which is
+what says whether a long run needs `inf compact` before the next turn (`cost_usd` is one
+turn and only rises). `fraction` counts to `compact_at_tokens` (the point where the
+server summarizes the transcript by itself), so 1.0 means "compacting now", not "window
+full"; `fraction_of_window` is the same count against the 1M window. The whole object
+is `null` when the server does not report it. Ask in English or Korean — Informe answers in
 the language of the question. Keep the `session_key` and pass `--session <key>` on
 follow-ups so Informe keeps context (schema, filters, timezone):
 
@@ -60,6 +69,18 @@ follow-ups so Informe keeps context (schema, filters, timezone):
 
 Without `--json`, answer text streams to stdout and tool activity to stderr —
 safe to pipe stdout.
+
+## Long sessions
+
+`inf sessions` shows each session's context size, so the heavy one is visible
+without opening it. When one gets full, compact it instead of starting over:
+
+    inf compact <key>        # 740K → 12K tokens; same session_key, same thread
+
+The session key does not change — the file paths, rules and progress you built
+up survive; the bulk the model no longer needs does not. `/compact` does the
+same thing from inside the REPL. Refused with a pointer to `inf stop` while a
+turn is still running.
 
 ## Files
 

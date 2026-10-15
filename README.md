@@ -1,8 +1,6 @@
 # informe-cli — Informe in your terminal
 
-> Public mirror of `cli/` in the private `mindlogic-claude-agent` repo (source of truth, synced from commit c615b98d). Installing needs no GitHub access; using it still needs a @mindlogic.ai login through Cloudflare Access.
-
-    uv tool install "git+https://github.com/mindlogic-ai/informe-cli"
+    uv tool install "git+https://github.com/mindlogic-ai/mindlogic-claude-agent#subdirectory=cli"
     inf setup                                  # checks cloudflared, installs the Claude Code skill
     inf "어제 팩트챗 테넌트별 사용량 top 10"    # ask; the session also appears at informe-agent.mindlogic.tools
 
@@ -22,11 +20,12 @@ session, file, and cost is attributed to you, exactly like the web app.
     inf -c "follow-up"          continue your last session
     inf -p "q" --json           script/agent mode: JSON summary on stdout
     inf --attach f.log "q"      hand a local file to the turn
-    inf -m fable "q"            answer with Fable 5.1 (default: Opus 5); REPL: /fable, /opus, /model
+    inf -m fable "q"            answer with Fable 5.1 (also: sonnet, opus = default); sticks to the chat; REPL: /opus, /fable, /sonnet, /model, /compact
     inf open [key]              open the session in the web app
     inf stop [key]              stop the turn running on a session (default: last)
-    inf sessions [--search q]   list / search your sessions
-    inf history <key>           one session's transcript
+    inf compact [key]           summarize a heavy session's context, keeping the session
+    inf sessions [--search q]   list / search your sessions (with context size)
+    inf history <key>           one session's transcript, and its context size
     inf skills [name] [--mine]  what the org agent can do
     inf memory [show <path>]    org memory
     inf usage                   your spend this month

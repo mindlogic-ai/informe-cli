@@ -15,11 +15,11 @@ app.add_typer(db, name="db")
 CONFIG_DIR = pathlib.Path.home() / ".config" / "mindlogic"
 
 
-SKILL_DIR = pathlib.Path.home() / ".claude" / "skills" / "db-access"
+SKILL_DIR = pathlib.Path.home() / ".claude" / "skills" / "infra-access"
 
 
 def _install_skill() -> None:
-    """Drop the db-access skill next to the config.
+    """Drop the infra-access skill (DB access section) next to the config.
 
     `inf setup` only ships the informe-cli skill, so without this a person ends
     up connected but with none of the guidance that stops the common mistakes -
@@ -28,7 +28,7 @@ def _install_skill() -> None:
     """
     try:
         with auth.build_client() as c:
-            r = c.get("/v1/skills/db-access")
+            r = c.get("/v1/skills/infra-access")
             r.raise_for_status()
             content = r.json().get("content")
         if not content:
@@ -37,7 +37,7 @@ def _install_skill() -> None:
         (SKILL_DIR / "SKILL.md").write_text(content)
         typer.echo(f"✓ {SKILL_DIR / 'SKILL.md'}")
     except Exception as exc:  # noqa: BLE001
-        typer.echo(f"  (skill not installed: {exc}; run `inf skills db-access` to read it)",
+        typer.echo(f"  (skill not installed: {exc}; run `inf skills infra-access` to read it)",
                    err=True)
 
 

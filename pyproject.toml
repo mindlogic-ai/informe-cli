@@ -24,6 +24,7 @@ packages = ["src/informe_cli"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "skill/SKILL.md" = "informe_cli/skill/SKILL.md"
+"skills" = "informe_cli/skills"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

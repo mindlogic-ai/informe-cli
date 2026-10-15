@@ -1,36 +1,46 @@
 """Model selection for a turn — the CLI's counterpart of the web composer's
 model chip and Slack's sticky `/fable`.
 
-The server (`POST /v1/turns`) already takes a per-turn `model`; only the CLI
-had no way to send one. Aliases are the words people type ("fable", "opus"),
-resolved to the id Slack's sticky `/fable` sends (Fable 5.1, 1M context) so
-the terminal and the thread switch land on the same model.
-`opus` resolves to None on purpose: the server default *is* Opus, and sending
-no override keeps whatever context-window variant the server is configured
-with, exactly like Slack's `/opus` ("back to default").
+`POST /v1/turns` takes a per-turn `model`, and the server pins whatever is sent
+to the conversation (the same store Slack's `/fable` writes), so a later turn
+that sends nothing — `inf -c`, another surface — stays on it. Aliases are the
+words people type, resolved to the ids the server lists.
+`opus` resolves to the bare family id "claude-opus", which the server maps to
+whatever its default Opus is. It must be sent rather than omitted: omitting
+leaves the chat's pin in place, so `/fable` then `/opus` would stay on Fable.
 """
 from __future__ import annotations
 
 import re
 
 FABLE = "claude-fable-5-1[1m]"  # same id as Slack's /fable
+SONNET = "claude-sonnet-5[1m]"  # same id as Slack's /sonnet
+OPUS = "claude-opus"  # the server's default Opus, whichever it is
 
-# alias → model id sent as `model`; None means "server default".
-MODEL_ALIASES: dict[str, str | None] = {
+# alias → model id sent as `model`.
+MODEL_ALIASES: dict[str, str] = {
     "fable": FABLE,
     "fable5": FABLE,
     "fable5.1": FABLE,
     "fable-5": FABLE,
     "fable-5.1": FABLE,
-    "opus": None,
-    "opus5": None,
-    "auto": None,
-    "default": None,
+    "sonnet": SONNET,
+    "sonnet5": SONNET,
+    "sonnet-5": SONNET,
+    "opus": OPUS,
+    "opus5": OPUS,
+    "opus5.5": OPUS,
+    "opus-5.5": OPUS,
+    "auto": OPUS,
+    "default": OPUS,
 }
 
 
 def resolve_model(name: str | None) -> str | None:
-    """`--model fable` → "claude-fable-5-1[1m]"; a full `claude-*` id passes through."""
+    """`--model fable` → "claude-fable-5-1[1m]"; a full `claude-*` id passes through.
+
+    None (no flag) sends nothing, so the chat keeps whatever it is pinned to.
+    """
     if name is None:
         return None
     key = name.strip().lower()
@@ -40,10 +50,12 @@ def resolve_model(name: str | None) -> str | None:
         return MODEL_ALIASES[key]
     if key.startswith("claude-"):
         return name.strip()
-    raise ValueError(f"unknown model {name!r} — use fable, opus, auto, or a full claude-* id")
+    raise ValueError(f"unknown model {name!r} — use opus, fable, sonnet, or a full claude-* id")
 
 
-_CMD_RE = re.compile(r"^/(fable(?:[- ]?5(?:\.1)?)?|opus(?:[- ]?5)?|model)$", re.I)
+_CMD_RE = re.compile(
+    r"^/(fable(?:[- ]?5(?:\.1)?)?|sonnet(?:[- ]?5)?|opus(?:[- ]?5(?:\.5)?)?|model)$", re.I
+)
 
 
 def parse_model_command(line: str) -> tuple[bool, str | None, bool]:
@@ -59,8 +71,19 @@ def parse_model_command(line: str) -> tuple[bool, str | None, bool]:
     word = m.group(1).lower()
     if word == "model":
         return True, None, True
-    return True, (FABLE if word.startswith("fable") else None), False
+    if word.startswith("fable"):
+        return True, FABLE, False
+    if word.startswith("sonnet"):
+        return True, SONNET, False
+    return True, OPUS, False
 
 
 def label(model: str | None) -> str:
-    return "Fable 5.1" if model and model.startswith("claude-fable") else "Opus 5 (server default)"
+    if not model:
+        return "this chat's model (default: Opus)"
+    if model == OPUS:
+        return "Opus (server default)"
+    m = re.match(r"claude-([a-z]+)((?:-\d{1,2})+)", model)
+    if not m:
+        return model
+    return f"{m.group(1).capitalize()} {'.'.join(m.group(2)[1:].split('-'))}"
