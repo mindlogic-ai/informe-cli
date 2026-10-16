@@ -93,15 +93,50 @@ def history(session_key: str, json_out: bool = typer.Option(False, "--json")):
     _emit(data, json_out, human)
 
 
+def _install_skill(name: str, data: dict) -> None:
+    """SKILL.md plus the text files the API ships beside it (references/…).
+
+    Paths come from the server, so each one must stay inside the skill dir.
+    """
+    from informe_cli.setup_cmd import _skills_dir
+
+    dest = (_skills_dir() / name).resolve()
+    content = data.get("content") or ""
+    if not content.startswith("---"):
+        # personal skills come back as a bare body; give Claude Code its frontmatter
+        desc = (data.get("description") or "").replace("\n", " ")
+        content = f"---\nname: {name}\ndescription: {desc}\n---\n\n{content}"
+    dest.mkdir(parents=True, exist_ok=True)
+    (dest / "SKILL.md").write_text(content, encoding="utf-8")
+    written = ["SKILL.md"]
+    for rel, text in sorted((data.get("files") or {}).items()):
+        target = (dest / rel).resolve()
+        if not target.is_relative_to(dest):
+            typer.echo(f"  skipped {rel} (outside the skill dir)", err=True)
+            continue
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(text, encoding="utf-8")
+        written.append(rel)
+    typer.echo(f"✓ {dest}  ({', '.join(written)})")
+
+
 @app.command()
 def skills(
     name: str = typer.Argument(None),
     mine: bool = typer.Option(False, "--mine", help="your personal skills"),
+    install: bool = typer.Option(
+        False, "--install",
+        help="write NAME (SKILL.md + references/) into ~/.claude/skills/NAME/"),
     json_out: bool = typer.Option(False, "--json"),
 ):
     """Shared (or --mine personal) skills; give a NAME for its full SKILL.md."""
+    if install and not name:
+        raise typer.BadParameter("--install needs a skill NAME")
     if name:
         data = _get(f"/v1/my/skills/{name}" if mine else f"/v1/skills/{name}")
+        if install:
+            _install_skill(name, data)
+            return
         _emit(data, json_out,
               lambda d: typer.echo(d.get("content") or jsonlib.dumps(d, ensure_ascii=False)))
         return

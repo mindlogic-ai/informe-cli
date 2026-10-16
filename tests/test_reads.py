@@ -68,6 +68,24 @@ def test_skills_list_and_one(mock_api):
     assert "# SKILL" in runner.invoke(app, ["skills", "publish"]).output
 
 
+def test_skills_install_writes_references(mock_api, tmp_path, monkeypatch):
+    monkeypatch.setenv("CLAUDE_SKILLS_DIR", str(tmp_path))
+    mock_api[("GET", "/v1/skills/design")] = lambda req: httpx.Response(
+        200, json={"name": "design", "content": "---\nname: design\n---\nbody",
+                   "files": {"references/DESIGN.md": "# 디자인",
+                             "../escape.md": "no"}})
+    result = runner.invoke(app, ["skills", "design", "--install"])
+    assert result.exit_code == 0
+    assert (tmp_path / "design" / "SKILL.md").read_text(encoding="utf-8").endswith("body")
+    ref = tmp_path / "design" / "references" / "DESIGN.md"
+    assert ref.read_text(encoding="utf-8") == "# 디자인"
+    assert not (tmp_path / "escape.md").exists()
+
+
+def test_skills_install_needs_name(mock_api):
+    assert runner.invoke(app, ["skills", "--install"]).exit_code != 0
+
+
 def test_skills_mine(mock_api):
     mock_api[("GET", "/v1/my/skills")] = lambda req: httpx.Response(
         200, json={"skills": [{"name": "my-thing", "description": "d"}]}

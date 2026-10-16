@@ -27,6 +27,7 @@ session, file, and cost is attributed to you, exactly like the web app.
     inf sessions [--search q]   list / search your sessions (with context size)
     inf history <key>           one session's transcript, and its context size
     inf skills [name] [--mine]  what the org agent can do
+    inf skills <name> --install  install a shared skill (+ references/) into ~/.claude/skills/
     inf memory [show <path>]    org memory
     inf usage                   your spend this month
     inf files ls|get            artifacts from chats
